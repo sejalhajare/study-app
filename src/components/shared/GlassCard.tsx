@@ -8,14 +8,16 @@ interface GlassCardProps {
   onClick?: () => void
   gradient?: boolean
   padding?: string
+  style?: React.CSSProperties
 }
 
-export function GlassCard({ children, className, hover = false, onClick, gradient = false, padding = 'p-6' }: GlassCardProps) {
+export function GlassCard({ children, className, hover = false, onClick, gradient = false, padding = 'p-6', style }: GlassCardProps) {
   return (
     <motion.div
       whileHover={hover ? { y: -4, scale: 1.01 } : undefined}
       whileTap={onClick ? { scale: 0.98 } : undefined}
       onClick={onClick}
+      style={style}
       className={cn(
         'rounded-3xl border transition-all duration-300',
         gradient

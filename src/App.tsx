@@ -9,6 +9,8 @@ import Signup from '@/pages/auth/Signup'
 // Pages
 import Dashboard from '@/pages/Dashboard'
 import Subjects from '@/pages/Subjects'
+import Notes from '@/pages/Notes'
+import Tasks from '@/pages/Tasks'
 
 function App() {
   return (
@@ -24,6 +26,8 @@ function App() {
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
             <Route path="/subjects" element={<Subjects />} />
+            <Route path="/notes" element={<Notes />} />
+            <Route path="/tasks" element={<Tasks />} />
             {/* We will add other routes here as we build them */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

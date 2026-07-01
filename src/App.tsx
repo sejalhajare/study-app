@@ -6,14 +6,9 @@ import { AppLayout } from '@/components/layout/AppLayout'
 import Login from '@/pages/auth/Login'
 import Signup from '@/pages/auth/Signup'
 
-// Placeholder for Dashboard
-function Dashboard() {
-  return (
-    <div className="p-8">
-      <h1 className="text-3xl font-bold text-gradient mb-6">Dashboard coming soon! 🌸</h1>
-    </div>
-  )
-}
+// Pages
+import Dashboard from '@/pages/Dashboard'
+import Subjects from '@/pages/Subjects'
 
 function App() {
   return (
@@ -28,6 +23,7 @@ function App() {
           {/* Main App Routes */}
           <Route element={<AppLayout />}>
             <Route path="/" element={<Dashboard />} />
+            <Route path="/subjects" element={<Subjects />} />
             {/* We will add other routes here as we build them */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

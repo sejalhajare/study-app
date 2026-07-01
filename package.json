@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc --build --clean && tsc -b && vite build",
+    "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview"
   },
@@ -40,7 +40,10 @@
     "react-router-dom": "^7.18.1",
     "recharts": "^3.9.1",
     "tailwind-merge": "^3.6.0",
-    "zustand": "^5.0.14"
+    "zustand": "^5.0.14",
+    "autoprefixer": "^10.5.2",
+    "postcss": "^8.5.16",
+    "tailwindcss": "^3.4.19"
   },
   "devDependencies": {
     "@types/node": "^24.13.2",
@@ -48,7 +51,7 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
     "oxlint": "^1.71.0",
-    "typescript": "~6.0.2",
+    "typescript": "^6.0.3",
     "vite": "^8.1.1"
   }
 }

@@ -1,4 +1,4 @@
-import { lazy, Suspense } from 'react'
+import React, { lazy, Suspense, useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { AppLayout } from '@/components/layout/AppLayout'
@@ -57,46 +57,66 @@ function PageLoader() {
   )
 }
 
+function AuthInitializer({ children }: { children: React.ReactNode }) {
+  const { initializeAuth, isInitialized } = useAuthStore()
+
+  useEffect(() => {
+    initializeAuth()
+  }, [initializeAuth])
+
+  if (!isInitialized) {
+    return (
+      <div className="h-screen w-screen flex items-center justify-center bg-hero-gradient">
+        <div className="w-10 h-10 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  return <>{children}</>
+}
+
 function App() {
   useFirebaseSync()
 
   return (
     <ErrorBoundary>
-      <Router>
-        <Routes>
-          {/* Public Auth Routes */}
-          <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-          <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
-          <Route path="/forgot-password" element={<PublicRoute><Suspense fallback={<PageLoader />}><ForgotPassword /></Suspense></PublicRoute>} />
+      <AuthInitializer>
+        <Router>
+          <Routes>
+            {/* Public Auth Routes */}
+            <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
+            <Route path="/signup" element={<PublicRoute><Signup /></PublicRoute>} />
+            <Route path="/forgot-password" element={<PublicRoute><Suspense fallback={<PageLoader />}><ForgotPassword /></Suspense></PublicRoute>} />
 
-          {/* Protected App Routes */}
-          <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/subjects" element={<Suspense fallback={<PageLoader />}><Subjects /></Suspense>} />
-            <Route path="/notes" element={<Suspense fallback={<PageLoader />}><Notes /></Suspense>} />
-            <Route path="/tasks" element={<Suspense fallback={<PageLoader />}><Tasks /></Suspense>} />
-            <Route path="/calendar" element={<Suspense fallback={<PageLoader />}><Calendar /></Suspense>} />
-            <Route path="/pomodoro" element={<Suspense fallback={<PageLoader />}><Pomodoro /></Suspense>} />
-            <Route path="/ai" element={<Suspense fallback={<PageLoader />}><AIAssistant /></Suspense>} />
-            <Route path="/flashcards" element={<Suspense fallback={<PageLoader />}><Flashcards /></Suspense>} />
-            <Route path="/quiz" element={<Suspense fallback={<PageLoader />}><Quiz /></Suspense>} />
-            <Route path="/assignments" element={<Suspense fallback={<PageLoader />}><Assignments /></Suspense>} />
-            <Route path="/attendance" element={<Suspense fallback={<PageLoader />}><Attendance /></Suspense>} />
-            <Route path="/exams" element={<Suspense fallback={<PageLoader />}><ExamPlanner /></Suspense>} />
-            <Route path="/gpa" element={<Suspense fallback={<PageLoader />}><GPACalculator /></Suspense>} />
-            <Route path="/habits" element={<Suspense fallback={<PageLoader />}><Habits /></Suspense>} />
-            <Route path="/mood" element={<Suspense fallback={<PageLoader />}><MoodTracker /></Suspense>} />
-            <Route path="/water" element={<Suspense fallback={<PageLoader />}><WaterTracker /></Suspense>} />
-            <Route path="/sleep" element={<Suspense fallback={<PageLoader />}><SleepTracker /></Suspense>} />
-            <Route path="/statistics" element={<Suspense fallback={<PageLoader />}><Statistics /></Suspense>} />
-            <Route path="/rewards" element={<Suspense fallback={<PageLoader />}><Rewards /></Suspense>} />
-            <Route path="/motivation" element={<Suspense fallback={<PageLoader />}><Motivation /></Suspense>} />
-            <Route path="/settings" element={<Suspense fallback={<PageLoader />}><Settings /></Suspense>} />
-            <Route path="/profile" element={<Suspense fallback={<PageLoader />}><Profile /></Suspense>} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Route>
-        </Routes>
-      </Router>
+            {/* Protected App Routes */}
+            <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/subjects" element={<Suspense fallback={<PageLoader />}><Subjects /></Suspense>} />
+              <Route path="/notes" element={<Suspense fallback={<PageLoader />}><Notes /></Suspense>} />
+              <Route path="/tasks" element={<Suspense fallback={<PageLoader />}><Tasks /></Suspense>} />
+              <Route path="/calendar" element={<Suspense fallback={<PageLoader />}><Calendar /></Suspense>} />
+              <Route path="/pomodoro" element={<Suspense fallback={<PageLoader />}><Pomodoro /></Suspense>} />
+              <Route path="/ai" element={<Suspense fallback={<PageLoader />}><AIAssistant /></Suspense>} />
+              <Route path="/flashcards" element={<Suspense fallback={<PageLoader />}><Flashcards /></Suspense>} />
+              <Route path="/quiz" element={<Suspense fallback={<PageLoader />}><Quiz /></Suspense>} />
+              <Route path="/assignments" element={<Suspense fallback={<PageLoader />}><Assignments /></Suspense>} />
+              <Route path="/attendance" element={<Suspense fallback={<PageLoader />}><Attendance /></Suspense>} />
+              <Route path="/exams" element={<Suspense fallback={<PageLoader />}><ExamPlanner /></Suspense>} />
+              <Route path="/gpa" element={<Suspense fallback={<PageLoader />}><GPACalculator /></Suspense>} />
+              <Route path="/habits" element={<Suspense fallback={<PageLoader />}><Habits /></Suspense>} />
+              <Route path="/mood" element={<Suspense fallback={<PageLoader />}><MoodTracker /></Suspense>} />
+              <Route path="/water" element={<Suspense fallback={<PageLoader />}><WaterTracker /></Suspense>} />
+              <Route path="/sleep" element={<Suspense fallback={<PageLoader />}><SleepTracker /></Suspense>} />
+              <Route path="/statistics" element={<Suspense fallback={<PageLoader />}><Statistics /></Suspense>} />
+              <Route path="/rewards" element={<Suspense fallback={<PageLoader />}><Rewards /></Suspense>} />
+              <Route path="/motivation" element={<Suspense fallback={<PageLoader />}><Motivation /></Suspense>} />
+              <Route path="/settings" element={<Suspense fallback={<PageLoader />}><Settings /></Suspense>} />
+              <Route path="/profile" element={<Suspense fallback={<PageLoader />}><Profile /></Suspense>} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Route>
+          </Routes>
+        </Router>
+      </AuthInitializer>
     </ErrorBoundary>
   )
 }

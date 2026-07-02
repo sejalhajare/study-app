@@ -21,7 +21,12 @@ export default function ForgotPassword() {
       await sendPasswordResetEmail(auth, email)
       setSent(true)
     } catch (err: any) {
-      setError(err.message || 'Failed to send reset email')
+      const code = err?.code || ''
+      if (code === 'auth/user-not-found') {
+        setError('Account does not exist')
+      } else {
+        setError(err.message || 'Failed to send reset email')
+      }
     } finally {
       setIsLoading(false)
     }

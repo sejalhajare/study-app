@@ -19,7 +19,7 @@ export default function Signup() {
     const e: Record<string, string> = {}
     if (!name.trim()) e.name = 'Name is required'
     if (!email.includes('@')) e.email = 'Valid email required'
-    if (password.length < 6) e.password = 'Password must be at least 6 characters'
+    if (password.length < 8) e.password = 'Password must be at least 8 characters'
     if (password !== confirm) e.confirm = 'Passwords do not match'
     setErrors(e)
     return Object.keys(e).length === 0
@@ -29,11 +29,12 @@ export default function Signup() {
     e.preventDefault()
     setServerError('')
     if (!validate()) return
-    const success = await signup(name, email, password)
-    if (success) {
+    
+    const result = await signup(name, email, password)
+    if (result.success) {
       navigate('/')
     } else {
-      setServerError('Failed to create account. This email may already be in use.')
+      setServerError(result.error || 'Failed to create account. Please try again.')
     }
   }
 
@@ -52,7 +53,7 @@ export default function Signup() {
         transition={{ duration: 0.6 }}
         className="w-full max-w-md"
       >
-        <div className="glass rounded-[2rem] p-8 shadow-glass-lg">
+        <div className="glass rounded-[2rem] p-8 shadow-glass-lg relative z-10">
           <div className="text-center mb-8">
             <motion.div
               animate={{ rotate: [0, 5, -5, 0] }}
@@ -97,7 +98,7 @@ export default function Signup() {
               <div className="relative">
                 <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-pink-300" />
                 <input
-                  type={showPassword ? 'text' : 'password'} placeholder="Password (min. 6 chars)"
+                  type={showPassword ? 'text' : 'password'} placeholder="Password (min. 8 chars)"
                   value={password} onChange={e => setPassword(e.target.value)}
                   className={`w-full pl-10 pr-12 py-3.5 rounded-2xl border bg-white/60 text-sm focus:outline-none focus:ring-2 focus:ring-pink-100 transition-all ${errors.password ? 'border-red-300' : 'border-pink-100 focus:border-pink-300'}`}
                 />
@@ -122,7 +123,7 @@ export default function Signup() {
             <motion.button
               type="submit" disabled={isLoading}
               whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}
-              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-pink-300 to-lavender-300 text-white font-bold text-sm shadow-pink hover:shadow-glass transition-all flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-pink-300 to-lavender-300 text-white font-bold text-sm shadow-pink hover:shadow-glass transition-all flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isLoading
                 ? <span className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />

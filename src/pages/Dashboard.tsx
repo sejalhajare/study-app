@@ -2,8 +2,8 @@ import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import { Link } from 'react-router-dom'
 import { 
-  Play, BookOpen, CheckSquare, Timer, Trophy, 
-  Flame, Star, Calendar, ArrowRight, BookMarked
+  CheckSquare, Timer, 
+  Flame, Calendar, ArrowRight, BookMarked
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useSubjectStore } from '@/store/subjectStore'
@@ -12,7 +12,6 @@ import { useStudyStore } from '@/store/studyStore'
 import { GlassCard } from '@/components/shared/GlassCard'
 import { StatCard } from '@/components/shared/StatCard'
 import { ProgressRing } from '@/components/shared/ProgressRing'
-import { AnimatedButton } from '@/components/shared/AnimatedButton'
 import { MOTIVATIONAL_QUOTES } from '@/data/constants'
 import { getGreeting, formatDate, getRandomItem } from '@/lib/utils'
 
@@ -160,7 +159,7 @@ export default function Dashboard() {
               </Link>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {recentSubjects.map((subject, idx) => (
+              {recentSubjects.map((subject) => (
                 <GlassCard key={subject.id} hover padding="p-4" className="relative overflow-hidden group">
                   <div className="absolute -right-4 -top-4 w-16 h-16 rounded-full opacity-20 transition-transform group-hover:scale-150" style={{ backgroundColor: subject.color }} />
                   <div className="flex items-center gap-3 mb-3">

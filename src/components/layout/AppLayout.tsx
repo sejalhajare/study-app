@@ -5,7 +5,6 @@ import { Header } from './Header'
 import { useUIStore } from '@/store/uiStore'
 
 export function AppLayout() {
-  const { sidebarOpen } = useUIStore()
 
   return (
     <div className="flex h-screen bg-cute dark:bg-cute-dark overflow-hidden">

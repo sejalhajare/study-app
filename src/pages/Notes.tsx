@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Plus, Search, Pin, Star, X, FileText, 
-  CheckSquare, Tag as TagIcon, Pencil, Trash2
+  CheckSquare, Tag as TagIcon, Pencil
 } from 'lucide-react'
 import { useNoteStore } from '@/store/noteStore'
 import { GlassCard } from '@/components/shared/GlassCard'

@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import type { Assignment, Exam, FlashCard, Habit, MoodEntry, WaterEntry, SleepEntry, GPAEntry, CalendarEvent, QuizQuestion, Achievement } from '@/types'
 import { auth, db } from '@/lib/firebase'
 import { collection, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore'
-import { DEFAULT_ACHIEVEMENTS, HABIT_DEFAULTS, DAILY_WATER_GOAL } from '@/data/constants'
+import { DEFAULT_ACHIEVEMENTS, DAILY_WATER_GOAL } from '@/data/constants'
 
 interface StudyState {
   assignments: Assignment[]
@@ -287,16 +287,13 @@ export const useStudyStore = create<StudyState>()((set, get) => ({
     try { await updateDoc(doc(db, 'users', userId, 'achievements', id), { current, earnedAt }) } catch (e) { console.error(e) }
   },
 
-  setDailyWaterGoal: async (goal) => {
-    const userId = auth.currentUser?.uid;
-    set({ dailyWaterGoal: goal })
+  updateWaterGoal: async (userId: string, goal: number) => {
     if (!userId) return;
-    try { await updateDoc(doc(db, 'users', userId, 'settings', 'study'), { dailyWaterGoal: goal }) } catch(e) {}
+    try { await updateDoc(doc(db, 'users', userId, 'settings', 'study'), { dailyWaterGoal: goal }) } catch(_e) {}
   },
-  setDailySleepGoal: async (goal) => {
-    const userId = auth.currentUser?.uid;
-    set({ dailySleepGoal: goal })
+  
+  updateSleepGoal: async (userId: string, goal: number) => {
     if (!userId) return;
-    try { await updateDoc(doc(db, 'users', userId, 'settings', 'study'), { dailySleepGoal: goal }) } catch(e) {}
+    try { await updateDoc(doc(db, 'users', userId, 'settings', 'study'), { dailySleepGoal: goal }) } catch(_e) {}
   },
 }))

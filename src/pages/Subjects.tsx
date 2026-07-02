@@ -7,7 +7,7 @@ import { AnimatedButton } from '@/components/shared/AnimatedButton'
 import { EmptyState } from '@/components/shared/EmptyState'
 
 export default function Subjects() {
-  const { subjects, toggleFavorite, deleteSubject } = useSubjectStore()
+  const { subjects, toggleFavorite } = useSubjectStore()
   const [searchTerm, setSearchTerm] = useState('')
   const [filter, setFilter] = useState<'all' | 'favorites'>('all')
 

@@ -287,12 +287,16 @@ export const useStudyStore = create<StudyState>()((set, get) => ({
     try { await updateDoc(doc(db, 'users', userId, 'achievements', id), { current, earnedAt }) } catch (e) { console.error(e) }
   },
 
-  updateWaterGoal: async (userId: string, goal: number) => {
+  setDailyWaterGoal: async (goal) => {
+    const userId = auth.currentUser?.uid;
+    set({ dailyWaterGoal: goal });
     if (!userId) return;
     try { await updateDoc(doc(db, 'users', userId, 'settings', 'study'), { dailyWaterGoal: goal }) } catch(_e) {}
   },
   
-  updateSleepGoal: async (userId: string, goal: number) => {
+  setDailySleepGoal: async (goal) => {
+    const userId = auth.currentUser?.uid;
+    set({ dailySleepGoal: goal });
     if (!userId) return;
     try { await updateDoc(doc(db, 'users', userId, 'settings', 'study'), { dailySleepGoal: goal }) } catch(_e) {}
   },

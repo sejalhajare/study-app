@@ -17,16 +17,22 @@ export interface User {
 export interface Subject {
   id: string
   name: string
+  subjectCode: string
   color: string
   icon: string
   teacher?: string
   credits: number
   semester: string
+  description?: string
   attendance: { present: number; absent: number; late: number }
   progress: number
+  totalTasks: number
+  completedTasks: number
+  totalNotes: number
   studyHours: number
   isFavorite: boolean
   createdAt: string
+  updatedAt: string
 }
 
 export interface Note {
@@ -103,10 +109,18 @@ export interface CalendarEvent {
   endDate?: string
   time?: string
   endTime?: string
-  type: 'exam' | 'assignment' | 'holiday' | 'study' | 'personal' | 'class'
+  type: 'exam' | 'assignment' | 'holiday' | 'study' | 'personal' | 'class' | 'meeting' | 'reminder' | 'lecture'
   color: string
   description?: string
-  isRecurring?: boolean
+  subject?: string
+  subjectId?: string
+  priority?: 'high' | 'medium' | 'low'
+  reminder?: string
+  repeat?: 'none' | 'daily' | 'weekly' | 'monthly'
+  location?: string
+  completed: boolean
+  createdAt: string
+  updatedAt: string
 }
 
 export interface FlashCard {

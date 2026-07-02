@@ -5,11 +5,30 @@ import { useSubjectStore } from '@/store/subjectStore'
 import { GlassCard } from '@/components/shared/GlassCard'
 import { AnimatedButton } from '@/components/shared/AnimatedButton'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { SubjectModal } from '@/components/subjects/SubjectModal'
+import { Subject } from '@/types'
 
 export default function Subjects() {
-  const { subjects, toggleFavorite } = useSubjectStore()
+  const { subjects, toggleFavorite, deleteSubject } = useSubjectStore()
   const [searchTerm, setSearchTerm] = useState('')
   const [filter, setFilter] = useState<'all' | 'favorites'>('all')
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [subjectToEdit, setSubjectToEdit] = useState<Subject | undefined>(undefined)
+
+  const handleEdit = (subject: Subject) => {
+    setSubjectToEdit(subject)
+    setIsModalOpen(true)
+  }
+
+  const handleDelete = async (id: string, name: string) => {
+    if (window.confirm(`Are you sure you want to delete ${name}?`)) {
+      try {
+        await deleteSubject(id)
+      } catch (error) {
+        alert('Failed to delete subject')
+      }
+    }
+  }
 
   const filteredSubjects = subjects.filter(s => {
     const matchesSearch = s.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -25,7 +44,10 @@ export default function Subjects() {
           <h1 className="text-3xl font-bold text-foreground">Subjects 📚</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage your classes and track your progress</p>
         </div>
-        <AnimatedButton icon={<Plus size={18} />}>
+        <AnimatedButton 
+          icon={<Plus size={18} />} 
+          onClick={() => { setSubjectToEdit(undefined); setIsModalOpen(true); }}
+        >
           Add Subject
         </AnimatedButton>
       </div>
@@ -61,13 +83,13 @@ export default function Subjects() {
           icon="📚"
           title="No Subjects Found"
           description={searchTerm ? "Try a different search term" : "You haven't added any subjects yet. Let's get started!"}
-          action={!searchTerm && <AnimatedButton variant="secondary" icon={<Plus size={16} />}>Add Your First Subject</AnimatedButton>}
+          action={!searchTerm && <AnimatedButton onClick={() => { setSubjectToEdit(undefined); setIsModalOpen(true); }} variant="secondary" icon={<Plus size={16} />}>Add Your First Subject</AnimatedButton>}
         />
       ) : (
         <motion.div layout className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
           <AnimatePresence>
             {filteredSubjects.map(subject => {
-              const totalAttendance = subject.attendance.present + subject.attendance.absent + subject.attendance.late
+              const totalAttendance = subject.attendance?.present + subject.attendance?.absent + subject.attendance?.late || 0
               const attendancePercent = totalAttendance > 0 ? Math.round((subject.attendance.present / totalAttendance) * 100) : 0
 
               return (
@@ -106,8 +128,19 @@ export default function Subjects() {
                         >
                           {subject.isFavorite ? '⭐' : <StarIcon />}
                         </button>
-                        <button className="p-1.5 rounded-lg hover:bg-pink-50 transition-colors text-muted-foreground">
-                          <MoreVertical size={16} />
+                        <button 
+                          onClick={() => handleEdit(subject)}
+                          className="p-1.5 rounded-lg hover:bg-blue-50 text-blue-500 transition-colors"
+                          title="Edit"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(subject.id, subject.name)}
+                          className="p-1.5 rounded-lg hover:bg-red-50 text-red-500 transition-colors"
+                          title="Delete"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                         </button>
                       </div>
                     </div>
@@ -116,15 +149,15 @@ export default function Subjects() {
                     <div className="grid grid-cols-2 gap-3 mb-6 relative z-10">
                       <div className="bg-white/50 rounded-xl p-3 border border-pink-50">
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-                          <CheckCircle2 size={12} className="text-pink-400" /> Attendance
+                          <CheckCircle2 size={12} className="text-pink-400" /> Tasks
                         </div>
-                        <p className="font-semibold text-foreground">{attendancePercent}%</p>
+                        <p className="font-semibold text-foreground">{subject.completedTasks || 0} / {subject.totalTasks || 0}</p>
                       </div>
                       <div className="bg-white/50 rounded-xl p-3 border border-pink-50">
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-1">
-                          <Clock size={12} className="text-lavender-400" /> Study Time
+                          <BookOpen size={12} className="text-lavender-400" /> Notes
                         </div>
-                        <p className="font-semibold text-foreground">{subject.studyHours} hrs</p>
+                        <p className="font-semibold text-foreground">{subject.totalNotes || 0} Saved</p>
                       </div>
                     </div>
 
@@ -154,6 +187,12 @@ export default function Subjects() {
           </AnimatePresence>
         </motion.div>
       )}
+
+      <SubjectModal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        subjectToEdit={subjectToEdit} 
+      />
     </div>
   )
 }

@@ -6,7 +6,7 @@ import { collection, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestor
 interface SubjectState {
   subjects: Subject[]
   setSubjects: (subjects: Subject[]) => void
-  addSubject: (subject: Omit<Subject, 'id' | 'createdAt'>) => Promise<void>
+  addSubject: (subject: Omit<Subject, 'id' | 'createdAt' | 'updatedAt' | 'progress' | 'totalTasks' | 'completedTasks' | 'totalNotes' | 'studyHours' | 'isFavorite' | 'attendance'>) => Promise<void>
   updateSubject: (id: string, updates: Partial<Subject>) => Promise<void>
   deleteSubject: (id: string) => Promise<void>
   toggleFavorite: (id: string) => Promise<void>
@@ -27,7 +27,15 @@ export const useSubjectStore = create<SubjectState>()((set, get) => ({
     const newSubject: Subject = {
       ...subjectData,
       id: subjectRef.id,
-      createdAt: new Date().toISOString()
+      progress: 0,
+      totalTasks: 0,
+      completedTasks: 0,
+      totalNotes: 0,
+      studyHours: 0,
+      isFavorite: false,
+      attendance: { present: 0, absent: 0, late: 0 },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
     }
     
     set((state) => ({ subjects: [...state.subjects, newSubject] }))
@@ -37,6 +45,7 @@ export const useSubjectStore = create<SubjectState>()((set, get) => ({
     } catch (error) {
       console.error("Failed to add subject:", error)
       set((state) => ({ subjects: state.subjects.filter(s => s.id !== newSubject.id) }))
+      throw error
     }
   },
 
@@ -44,15 +53,18 @@ export const useSubjectStore = create<SubjectState>()((set, get) => ({
     const userId = auth.currentUser?.uid
     if (!userId) return
 
+    const updatedData = { ...updates, updatedAt: new Date().toISOString() }
+
     set((state) => ({
-      subjects: state.subjects.map(s => s.id === id ? { ...s, ...updates } : s)
+      subjects: state.subjects.map(s => s.id === id ? { ...s, ...updatedData } : s)
     }))
 
     try {
       const subjectRef = doc(db, 'users', userId, 'subjects', id)
-      await updateDoc(subjectRef, updates)
+      await updateDoc(subjectRef, updatedData)
     } catch (error) {
       console.error("Failed to update subject:", error)
+      throw error
     }
   },
 
@@ -73,6 +85,7 @@ export const useSubjectStore = create<SubjectState>()((set, get) => ({
       if (subjectToDelete) {
         set((state) => ({ subjects: [...state.subjects, subjectToDelete] }))
       }
+      throw error
     }
   },
 

@@ -7,6 +7,7 @@ import { useTaskStore } from '@/store/taskStore'
 import { useNoteStore } from '@/store/noteStore'
 import { useSubjectStore } from '@/store/subjectStore'
 import { useStudyStore } from '@/store/studyStore'
+import { useCalendarStore } from '@/store/calendarStore'
 import { DEFAULT_ACHIEVEMENTS, HABIT_DEFAULTS } from '@/data/constants'
 
 export function useFirebaseSync() {
@@ -23,6 +24,7 @@ export function useFirebaseSync() {
           { name: 'tasks', setter: useTaskStore.getState().setTasks },
           { name: 'notes', setter: useNoteStore.getState().setNotes },
           { name: 'subjects', setter: useSubjectStore.getState().setSubjects },
+          { name: 'events', setter: useCalendarStore.getState().setEvents },
           { name: 'assignments', setter: studyStore.setAssignments },
           { name: 'exams', setter: studyStore.setExams },
           { name: 'flashcards', setter: studyStore.setFlashcards },
@@ -31,7 +33,6 @@ export function useFirebaseSync() {
           { name: 'water', setter: studyStore.setWater },
           { name: 'sleep', setter: studyStore.setSleep },
           { name: 'gpa', setter: studyStore.setGpaEntries },
-          { name: 'events', setter: studyStore.setEvents },
           { name: 'quizzes', setter: studyStore.setQuizQuestions },
           { name: 'achievements', setter: studyStore.setAchievements },
         ]
@@ -90,18 +91,17 @@ export function useFirebaseSync() {
         useNoteStore.getState().setNotes([])
         useSubjectStore.getState().setSubjects([])
         
-        const studyStore = useStudyStore.getState()
-        studyStore.setAssignments([])
-        studyStore.setExams([])
-        studyStore.setFlashcards([])
-        studyStore.setHabits([])
-        studyStore.setMoods([])
-        studyStore.setWater([])
-        studyStore.setSleep([])
-        studyStore.setGpaEntries([])
-        studyStore.setEvents([])
-        studyStore.setQuizQuestions([])
-        studyStore.setAchievements(DEFAULT_ACHIEVEMENTS)
+        useStudyStore.getState().setAssignments([])
+        useStudyStore.getState().setExams([])
+        useStudyStore.getState().setFlashcards([])
+        useStudyStore.getState().setHabits([])
+        useStudyStore.getState().setMoods([])
+        useStudyStore.getState().setWater([])
+        useStudyStore.getState().setSleep([])
+        useStudyStore.getState().setGpaEntries([])
+        useStudyStore.getState().setQuizQuestions([])
+        useStudyStore.getState().setAchievements(DEFAULT_ACHIEVEMENTS)
+        useCalendarStore.getState().setEvents([])
       }
     })
 

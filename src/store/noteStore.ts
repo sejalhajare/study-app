@@ -1,73 +1,130 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import type { Note } from '@/types'
-import { generateId } from '@/lib/utils'
+import { auth, db } from '@/lib/firebase'
+import { collection, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore'
 
 interface NoteState {
   notes: Note[]
-  addNote: (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => void
-  updateNote: (id: string, updates: Partial<Note>) => void
-  deleteNote: (id: string) => void
-  togglePin: (id: string) => void
-  toggleFavorite: (id: string) => void
+  setNotes: (notes: Note[]) => void
+  addNote: (note: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
+  updateNote: (id: string, updates: Partial<Note>) => Promise<void>
+  deleteNote: (id: string) => Promise<void>
+  togglePin: (id: string) => Promise<void>
+  toggleFavorite: (id: string) => Promise<void>
 }
 
-export const useNoteStore = create<NoteState>()(
-  persist(
-    (set) => ({
-      notes: [
-        {
-          id: '1', title: 'Newton\'s Laws of Motion', content: '1st Law: An object at rest stays at rest...\n2nd Law: F = ma\n3rd Law: Every action has an equal and opposite reaction.',
-          color: '#FFF0F5', tags: ['physics', 'important'], category: 'Lecture',
-          isPinned: true, isFavorite: true, isChecklist: false,
-          createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '2', title: 'Study Goals This Week', content: '',
-          color: '#F5F0FF', tags: ['goals'], category: 'Personal',
-          isPinned: false, isFavorite: false, isChecklist: true,
-          checklistItems: [
-            { id: 'c1', text: 'Complete Math Chapter 5', completed: true },
-            { id: 'c2', text: 'Read Physics textbook pg 120-140', completed: false },
-            { id: 'c3', text: 'Practice 20 coding problems', completed: false },
-          ],
-          createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-        },
-        {
-          id: '3', title: 'Calculus Formulas', content: 'Derivative of xⁿ = nxⁿ⁻¹\nIntegral of xⁿ = xⁿ⁺¹/(n+1) + C\nChain Rule: d/dx[f(g(x))] = f\'(g(x))·g\'(x)',
-          color: '#FFF5ED', tags: ['math', 'formulas'], category: 'Reference',
-          isPinned: true, isFavorite: false, isChecklist: false,
-          createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
-        },
-      ],
+export const useNoteStore = create<NoteState>()((set, get) => ({
+  notes: [],
 
-      addNote: (note) => set((state) => ({
-        notes: [{
-          ...note,
-          id: generateId(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }, ...state.notes]
-      })),
+  setNotes: (notes) => set({ notes }),
 
-      updateNote: (id, updates) => set((state) => ({
-        notes: state.notes.map(n => n.id === id
-          ? { ...n, ...updates, updatedAt: new Date().toISOString() }
-          : n)
-      })),
+  addNote: async (noteData) => {
+    const userId = auth.currentUser?.uid
+    if (!userId) return
 
-      deleteNote: (id) => set((state) => ({
-        notes: state.notes.filter(n => n.id !== id)
-      })),
+    const noteRef = doc(collection(db, 'users', userId, 'notes'))
+    const newNote: Note = {
+      ...noteData,
+      id: noteRef.id,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }
+    
+    set((state) => ({ notes: [newNote, ...state.notes] }))
+    
+    try {
+      await setDoc(noteRef, newNote)
+    } catch (error) {
+      console.error("Failed to add note:", error)
+      set((state) => ({ notes: state.notes.filter(n => n.id !== newNote.id) }))
+    }
+  },
 
-      togglePin: (id) => set((state) => ({
-        notes: state.notes.map(n => n.id === id ? { ...n, isPinned: !n.isPinned } : n)
-      })),
+  updateNote: async (id, updates) => {
+    const userId = auth.currentUser?.uid
+    if (!userId) return
 
-      toggleFavorite: (id) => set((state) => ({
-        notes: state.notes.map(n => n.id === id ? { ...n, isFavorite: !n.isFavorite } : n)
-      })),
-    }),
-    { name: 'study-planner-notes' }
-  )
-)
+    const updatedAt = new Date().toISOString()
+
+    set((state) => ({
+      notes: state.notes.map(n => n.id === id ? { ...n, ...updates, updatedAt } : n)
+    }))
+
+    try {
+      const noteRef = doc(db, 'users', userId, 'notes', id)
+      await updateDoc(noteRef, { ...updates, updatedAt })
+    } catch (error) {
+      console.error("Failed to update note:", error)
+    }
+  },
+
+  deleteNote: async (id) => {
+    const userId = auth.currentUser?.uid
+    if (!userId) return
+    
+    const { notes } = get()
+    const noteToDelete = notes.find(n => n.id === id)
+
+    set((state) => ({ notes: state.notes.filter(n => n.id !== id) }))
+
+    try {
+      const noteRef = doc(db, 'users', userId, 'notes', id)
+      await deleteDoc(noteRef)
+    } catch (error) {
+      console.error("Failed to delete note:", error)
+      if (noteToDelete) {
+        set((state) => ({ notes: [...state.notes, noteToDelete] }))
+      }
+    }
+  },
+
+  togglePin: async (id) => {
+    const userId = auth.currentUser?.uid
+    if (!userId) return
+
+    const { notes } = get()
+    const note = notes.find(n => n.id === id)
+    if (!note) return
+    
+    const newPinnedState = !note.isPinned
+
+    set((state) => ({
+      notes: state.notes.map(n => n.id === id ? { ...n, isPinned: newPinnedState } : n)
+    }))
+
+    try {
+      const noteRef = doc(db, 'users', userId, 'notes', id)
+      await updateDoc(noteRef, { isPinned: newPinnedState })
+    } catch (error) {
+      console.error("Failed to toggle pin:", error)
+      set((state) => ({
+        notes: state.notes.map(n => n.id === id ? { ...n, isPinned: !newPinnedState } : n)
+      }))
+    }
+  },
+
+  toggleFavorite: async (id) => {
+    const userId = auth.currentUser?.uid
+    if (!userId) return
+
+    const { notes } = get()
+    const note = notes.find(n => n.id === id)
+    if (!note) return
+    
+    const newFavoriteState = !note.isFavorite
+
+    set((state) => ({
+      notes: state.notes.map(n => n.id === id ? { ...n, isFavorite: newFavoriteState } : n)
+    }))
+
+    try {
+      const noteRef = doc(db, 'users', userId, 'notes', id)
+      await updateDoc(noteRef, { isFavorite: newFavoriteState })
+    } catch (error) {
+      console.error("Failed to toggle favorite:", error)
+      set((state) => ({
+        notes: state.notes.map(n => n.id === id ? { ...n, isFavorite: !newFavoriteState } : n)
+      }))
+    }
+  },
+}))

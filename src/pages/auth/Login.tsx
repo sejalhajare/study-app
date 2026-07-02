@@ -18,13 +18,19 @@ export default function Login() {
     setError('')
     if (!email || !password) { setError('Please fill in all fields'); return }
     if (!email.includes('@')) { setError('Please enter a valid email'); return }
-    await login(email, password)
-    navigate('/')
+    const success = await login(email, password)
+    if (success) {
+      navigate('/')
+    } else {
+      setError('Invalid email or password. Please check your credentials.')
+    }
   }
 
   const handleGoogleLogin = async () => {
-    await login('demo@studybloom.app', 'demo', 'Demo Student')
-    navigate('/')
+    setError('')
+    const success = await login('demo@studybloom.app', 'demo123')
+    if (success) navigate('/')
+    else setError('Demo login failed. Please use your own credentials.')
   }
 
   const floatingItems = ['📚', '🌸', '✨', '🎓', '💡', '🌙', '⭐', '🦋']

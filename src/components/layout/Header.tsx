@@ -15,8 +15,8 @@ export function Header() {
 
   const unreadCount = notifications.filter(n => !n.read).length
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     navigate('/login')
   }
 

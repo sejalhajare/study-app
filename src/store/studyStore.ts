@@ -1,7 +1,7 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
 import type { Assignment, Exam, FlashCard, Habit, MoodEntry, WaterEntry, SleepEntry, GPAEntry, CalendarEvent, QuizQuestion, Achievement } from '@/types'
-import { generateId } from '@/lib/utils'
+import { auth, db } from '@/lib/firebase'
+import { collection, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore'
 import { DEFAULT_ACHIEVEMENTS, HABIT_DEFAULTS, DAILY_WATER_GOAL } from '@/data/constants'
 
 interface StudyState {
@@ -19,270 +19,284 @@ interface StudyState {
   dailyWaterGoal: number
   dailySleepGoal: number
 
-  // Assignments
-  addAssignment: (a: Omit<Assignment, 'id' | 'createdAt'>) => void
-  updateAssignment: (id: string, updates: Partial<Assignment>) => void
-  deleteAssignment: (id: string) => void
+  setAssignments: (data: Assignment[]) => void
+  setExams: (data: Exam[]) => void
+  setFlashcards: (data: FlashCard[]) => void
+  setHabits: (data: Habit[]) => void
+  setMoods: (data: MoodEntry[]) => void
+  setWater: (data: WaterEntry[]) => void
+  setSleep: (data: SleepEntry[]) => void
+  setGpaEntries: (data: GPAEntry[]) => void
+  setEvents: (data: CalendarEvent[]) => void
+  setQuizQuestions: (data: QuizQuestion[]) => void
+  setAchievements: (data: Achievement[]) => void
+  setGoals: (water: number, sleep: number) => void
 
-  // Exams
-  addExam: (e: Omit<Exam, 'id' | 'createdAt'>) => void
-  updateExam: (id: string, updates: Partial<Exam>) => void
-  deleteExam: (id: string) => void
+  addAssignment: (a: Omit<Assignment, 'id' | 'createdAt'>) => Promise<void>
+  updateAssignment: (id: string, updates: Partial<Assignment>) => Promise<void>
+  deleteAssignment: (id: string) => Promise<void>
 
-  // Flashcards
-  addFlashcard: (f: Omit<FlashCard, 'id' | 'createdAt'>) => void
-  updateFlashcard: (id: string, updates: Partial<FlashCard>) => void
-  deleteFlashcard: (id: string) => void
-  toggleFlashcardFavorite: (id: string) => void
+  addExam: (e: Omit<Exam, 'id' | 'createdAt'>) => Promise<void>
+  updateExam: (id: string, updates: Partial<Exam>) => Promise<void>
+  deleteExam: (id: string) => Promise<void>
 
-  // Habits
-  addHabit: (h: Omit<Habit, 'id' | 'createdAt'>) => void
-  deleteHabit: (id: string) => void
-  toggleHabitDate: (id: string, date: string) => void
+  addFlashcard: (f: Omit<FlashCard, 'id' | 'createdAt'>) => Promise<void>
+  updateFlashcard: (id: string, updates: Partial<FlashCard>) => Promise<void>
+  deleteFlashcard: (id: string) => Promise<void>
+  toggleFlashcardFavorite: (id: string) => Promise<void>
 
-  // Mood
-  addMood: (m: Omit<MoodEntry, 'id'>) => void
-  deleteMood: (id: string) => void
+  addHabit: (h: Omit<Habit, 'id' | 'createdAt'>) => Promise<void>
+  deleteHabit: (id: string) => Promise<void>
+  toggleHabitDate: (id: string, date: string) => Promise<void>
 
-  // Water
-  addWater: (amount: number) => void
-  deleteWaterEntry: (id: string) => void
+  addMood: (m: Omit<MoodEntry, 'id'>) => Promise<void>
+  deleteMood: (id: string) => Promise<void>
 
-  // Sleep
-  addSleep: (s: Omit<SleepEntry, 'id'>) => void
-  deleteSleep: (id: string) => void
+  addWater: (amount: number) => Promise<void>
+  deleteWaterEntry: (id: string) => Promise<void>
 
-  // GPA
-  addGPAEntry: (g: Omit<GPAEntry, 'id'>) => void
-  updateGPAEntry: (id: string, updates: Partial<GPAEntry>) => void
-  deleteGPAEntry: (id: string) => void
+  addSleep: (s: Omit<SleepEntry, 'id'>) => Promise<void>
+  deleteSleep: (id: string) => Promise<void>
 
-  // Events
-  addEvent: (e: Omit<CalendarEvent, 'id'>) => void
-  updateEvent: (id: string, updates: Partial<CalendarEvent>) => void
-  deleteEvent: (id: string) => void
+  addGPAEntry: (g: Omit<GPAEntry, 'id'>) => Promise<void>
+  updateGPAEntry: (id: string, updates: Partial<GPAEntry>) => Promise<void>
+  deleteGPAEntry: (id: string) => Promise<void>
 
-  // Quiz
-  addQuizQuestion: (q: Omit<QuizQuestion, 'id'>) => void
-  deleteQuizQuestion: (id: string) => void
+  addEvent: (e: Omit<CalendarEvent, 'id'>) => Promise<void>
+  updateEvent: (id: string, updates: Partial<CalendarEvent>) => Promise<void>
+  deleteEvent: (id: string) => Promise<void>
 
-  // Achievements
-  updateAchievement: (id: string, current: number) => void
+  addQuizQuestion: (q: Omit<QuizQuestion, 'id'>) => Promise<void>
+  deleteQuizQuestion: (id: string) => Promise<void>
 
-  setDailyWaterGoal: (goal: number) => void
-  setDailySleepGoal: (goal: number) => void
+  updateAchievement: (id: string, current: number) => Promise<void>
+
+  setDailyWaterGoal: (goal: number) => Promise<void>
+  setDailySleepGoal: (goal: number) => Promise<void>
 }
 
-export const useStudyStore = create<StudyState>()(
-  persist(
-    (set) => ({
-      assignments: [
-        {
-          id: '1', name: 'Physics Lab Report', subjectId: '2', subjectName: 'Physics',
-          dueDate: new Date(Date.now() + 86400000 * 2).toISOString(),
-          priority: 'high', status: 'in-progress', progress: 60,
-          description: 'Write up the results of the pendulum experiment',
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: '2', name: 'Math Problem Set', subjectId: '1', subjectName: 'Mathematics',
-          dueDate: new Date(Date.now() + 86400000 * 4).toISOString(),
-          priority: 'medium', status: 'pending', progress: 20,
-          description: 'Chapter 5 exercises 1-30',
-          createdAt: new Date().toISOString(),
-        },
-      ],
-      exams: [
-        {
-          id: '1', name: 'Calculus Mid-Term', subjectId: '1', subjectName: 'Mathematics',
-          date: new Date(Date.now() + 86400000 * 14).toISOString(),
-          duration: 120, priority: 'high', difficulty: 'hard',
-          preparationProgress: 45,
-          revisionChecklist: [
-            { id: 'r1', text: 'Review derivatives', completed: true },
-            { id: 'r2', text: 'Practice integration problems', completed: false },
-            { id: 'r3', text: 'Study limits and continuity', completed: false },
-          ],
-          createdAt: new Date().toISOString(),
-        },
-      ],
-      flashcards: [
-        {
-          id: '1', question: 'What is Newton\'s Second Law?', answer: 'F = ma (Force equals mass times acceleration)',
-          category: 'Physics', difficulty: 'easy', isFavorite: true, reviewCount: 5,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: '2', question: 'What is the derivative of sin(x)?', answer: 'cos(x)',
-          category: 'Mathematics', difficulty: 'medium', isFavorite: false, reviewCount: 3,
-          createdAt: new Date().toISOString(),
-        },
-        {
-          id: '3', question: 'What is Ohm\'s Law?', answer: 'V = IR (Voltage = Current × Resistance)',
-          category: 'Physics', difficulty: 'easy', isFavorite: false, reviewCount: 2,
-          createdAt: new Date().toISOString(),
-        },
-      ],
-      habits: HABIT_DEFAULTS.map((h, i) => ({
-        id: String(i + 1),
-        ...h,
-        targetDays: 7,
-        completedDates: [],
-        createdAt: new Date().toISOString(),
-      })),
-      moods: [],
-      water: [],
-      sleep: [],
-      gpaEntries: [
-        { id: '1', courseName: 'Mathematics', credits: 4, grade: 'A', semester: 'Semester 1' },
-        { id: '2', courseName: 'Physics', credits: 3, grade: 'B+', semester: 'Semester 1' },
-        { id: '3', courseName: 'English', credits: 2, grade: 'A+', semester: 'Semester 1' },
-      ],
-      events: [
-        {
-          id: '1', title: 'Physics Exam', date: new Date(Date.now() + 86400000 * 14).toISOString(),
-          type: 'exam', color: '#FFCDD2', time: '10:00 AM',
-        },
-        {
-          id: '2', title: 'Math Assignment Due', date: new Date(Date.now() + 86400000 * 4).toISOString(),
-          type: 'assignment', color: '#F8BBD0', time: '11:59 PM',
-        },
-        {
-          id: '3', title: 'Study Group', date: new Date(Date.now() + 86400000 * 2).toISOString(),
-          type: 'study', color: '#C8E6C9', time: '3:00 PM',
-        },
-      ],
-      quizQuestions: [
-        {
-          id: '1', question: 'What is the chemical symbol for water?',
-          type: 'mcq', options: ['H2O', 'CO2', 'NaCl', 'O2'],
-          correctAnswer: 'H2O', difficulty: 'easy',
-        },
-        {
-          id: '2', question: 'The Earth revolves around the Sun.',
-          type: 'true-false', correctAnswer: 'true', difficulty: 'easy',
-        },
-        {
-          id: '3', question: 'The speed of light is approximately ______ km/s.',
-          type: 'fill-blank', correctAnswer: '300,000', difficulty: 'medium',
-        },
-      ],
-      achievements: DEFAULT_ACHIEVEMENTS,
-      dailyWaterGoal: DAILY_WATER_GOAL,
-      dailySleepGoal: 8,
+export const useStudyStore = create<StudyState>()((set, get) => ({
+  assignments: [],
+  exams: [],
+  flashcards: [],
+  habits: [],
+  moods: [],
+  water: [],
+  sleep: [],
+  gpaEntries: [],
+  events: [],
+  quizQuestions: [],
+  achievements: DEFAULT_ACHIEVEMENTS,
+  dailyWaterGoal: DAILY_WATER_GOAL,
+  dailySleepGoal: 8,
 
-      addAssignment: (a) => set((state) => ({
-        assignments: [{ ...a, id: generateId(), createdAt: new Date().toISOString() }, ...state.assignments]
-      })),
-      updateAssignment: (id, updates) => set((state) => ({
-        assignments: state.assignments.map(a => a.id === id ? { ...a, ...updates } : a)
-      })),
-      deleteAssignment: (id) => set((state) => ({
-        assignments: state.assignments.filter(a => a.id !== id)
-      })),
+  setAssignments: (data) => set({ assignments: data }),
+  setExams: (data) => set({ exams: data }),
+  setFlashcards: (data) => set({ flashcards: data }),
+  setHabits: (data) => set({ habits: data }),
+  setMoods: (data) => set({ moods: data }),
+  setWater: (data) => set({ water: data }),
+  setSleep: (data) => set({ sleep: data }),
+  setGpaEntries: (data) => set({ gpaEntries: data }),
+  setEvents: (data) => set({ events: data }),
+  setQuizQuestions: (data) => set({ quizQuestions: data }),
+  setAchievements: (data) => set({ achievements: data }),
+  setGoals: (water, sleep) => set({ dailyWaterGoal: water, dailySleepGoal: sleep }),
 
-      addExam: (e) => set((state) => ({
-        exams: [{ ...e, id: generateId(), createdAt: new Date().toISOString() }, ...state.exams]
-      })),
-      updateExam: (id, updates) => set((state) => ({
-        exams: state.exams.map(e => e.id === id ? { ...e, ...updates } : e)
-      })),
-      deleteExam: (id) => set((state) => ({
-        exams: state.exams.filter(e => e.id !== id)
-      })),
+  addAssignment: async (a) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    const ref = doc(collection(db, 'users', userId, 'assignments'))
+    const item = { ...a, id: ref.id, createdAt: new Date().toISOString() }
+    set(s => ({ assignments: [item, ...s.assignments] }))
+    try { await setDoc(ref, item) } catch (e) { console.error(e) }
+  },
+  updateAssignment: async (id, updates) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    set(s => ({ assignments: s.assignments.map(x => x.id === id ? { ...x, ...updates } : x) }))
+    try { await updateDoc(doc(db, 'users', userId, 'assignments', id), updates) } catch (e) { console.error(e) }
+  },
+  deleteAssignment: async (id) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    set(s => ({ assignments: s.assignments.filter(x => x.id !== id) }))
+    try { await deleteDoc(doc(db, 'users', userId, 'assignments', id)) } catch (e) { console.error(e) }
+  },
 
-      addFlashcard: (f) => set((state) => ({
-        flashcards: [{ ...f, id: generateId(), createdAt: new Date().toISOString() }, ...state.flashcards]
-      })),
-      updateFlashcard: (id, updates) => set((state) => ({
-        flashcards: state.flashcards.map(f => f.id === id ? { ...f, ...updates } : f)
-      })),
-      deleteFlashcard: (id) => set((state) => ({
-        flashcards: state.flashcards.filter(f => f.id !== id)
-      })),
-      toggleFlashcardFavorite: (id) => set((state) => ({
-        flashcards: state.flashcards.map(f => f.id === id ? { ...f, isFavorite: !f.isFavorite } : f)
-      })),
+  addExam: async (e) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    const ref = doc(collection(db, 'users', userId, 'exams'))
+    const item = { ...e, id: ref.id, createdAt: new Date().toISOString() }
+    set(s => ({ exams: [item, ...s.exams] }))
+    try { await setDoc(ref, item) } catch (err) { console.error(err) }
+  },
+  updateExam: async (id, updates) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    set(s => ({ exams: s.exams.map(x => x.id === id ? { ...x, ...updates } : x) }))
+    try { await updateDoc(doc(db, 'users', userId, 'exams', id), updates) } catch (e) { console.error(e) }
+  },
+  deleteExam: async (id) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    set(s => ({ exams: s.exams.filter(x => x.id !== id) }))
+    try { await deleteDoc(doc(db, 'users', userId, 'exams', id)) } catch (e) { console.error(e) }
+  },
 
-      addHabit: (h) => set((state) => ({
-        habits: [...state.habits, { ...h, id: generateId(), createdAt: new Date().toISOString() }]
-      })),
-      deleteHabit: (id) => set((state) => ({
-        habits: state.habits.filter(h => h.id !== id)
-      })),
-      toggleHabitDate: (id, date) => set((state) => ({
-        habits: state.habits.map(h => {
-          if (h.id !== id) return h
-          const completed = h.completedDates.includes(date)
-            ? h.completedDates.filter(d => d !== date)
-            : [...h.completedDates, date]
-          return { ...h, completedDates: completed }
-        })
-      })),
+  addFlashcard: async (f) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    const ref = doc(collection(db, 'users', userId, 'flashcards'))
+    const item = { ...f, id: ref.id, createdAt: new Date().toISOString() }
+    set(s => ({ flashcards: [item, ...s.flashcards] }))
+    try { await setDoc(ref, item) } catch (e) { console.error(e) }
+  },
+  updateFlashcard: async (id, updates) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    set(s => ({ flashcards: s.flashcards.map(x => x.id === id ? { ...x, ...updates } : x) }))
+    try { await updateDoc(doc(db, 'users', userId, 'flashcards', id), updates) } catch (e) { console.error(e) }
+  },
+  deleteFlashcard: async (id) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    set(s => ({ flashcards: s.flashcards.filter(x => x.id !== id) }))
+    try { await deleteDoc(doc(db, 'users', userId, 'flashcards', id)) } catch (e) { console.error(e) }
+  },
+  toggleFlashcardFavorite: async (id) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    const item = get().flashcards.find(f => f.id === id); if(!item) return;
+    const state = !item.isFavorite;
+    set(s => ({ flashcards: s.flashcards.map(x => x.id === id ? { ...x, isFavorite: state } : x) }))
+    try { await updateDoc(doc(db, 'users', userId, 'flashcards', id), { isFavorite: state }) } catch (e) { console.error(e) }
+  },
 
-      addMood: (m) => set((state) => ({
-        moods: [{ ...m, id: generateId() }, ...state.moods]
-      })),
-      deleteMood: (id) => set((state) => ({
-        moods: state.moods.filter(m => m.id !== id)
-      })),
+  addHabit: async (h) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    const ref = doc(collection(db, 'users', userId, 'habits'))
+    const item = { ...h, id: ref.id, createdAt: new Date().toISOString() }
+    set(s => ({ habits: [...s.habits, item] }))
+    try { await setDoc(ref, item) } catch (e) { console.error(e) }
+  },
+  deleteHabit: async (id) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    set(s => ({ habits: s.habits.filter(x => x.id !== id) }))
+    try { await deleteDoc(doc(db, 'users', userId, 'habits', id)) } catch (e) { console.error(e) }
+  },
+  toggleHabitDate: async (id, date) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    const habit = get().habits.find(h => h.id === id); if(!habit) return;
+    const completed = habit.completedDates.includes(date)
+      ? habit.completedDates.filter(d => d !== date)
+      : [...habit.completedDates, date]
+    set(s => ({ habits: s.habits.map(h => h.id === id ? { ...h, completedDates: completed } : h) }))
+    try { await updateDoc(doc(db, 'users', userId, 'habits', id), { completedDates: completed }) } catch (e) { console.error(e) }
+  },
 
-      addWater: (amount) => set((state) => ({
-        water: [{
-          id: generateId(),
-          amount,
-          date: new Date().toISOString().split('T')[0],
-          time: new Date().toLocaleTimeString(),
-        }, ...state.water]
-      })),
-      deleteWaterEntry: (id) => set((state) => ({
-        water: state.water.filter(w => w.id !== id)
-      })),
+  addMood: async (m) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    const ref = doc(collection(db, 'users', userId, 'moods'))
+    const item = { ...m, id: ref.id }
+    set(s => ({ moods: [item, ...s.moods] }))
+    try { await setDoc(ref, item) } catch (e) { console.error(e) }
+  },
+  deleteMood: async (id) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    set(s => ({ moods: s.moods.filter(x => x.id !== id) }))
+    try { await deleteDoc(doc(db, 'users', userId, 'moods', id)) } catch (e) { console.error(e) }
+  },
 
-      addSleep: (s) => set((state) => ({
-        sleep: [{ ...s, id: generateId() }, ...state.sleep]
-      })),
-      deleteSleep: (id) => set((state) => ({
-        sleep: state.sleep.filter(s => s.id !== id)
-      })),
+  addWater: async (amount) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    const ref = doc(collection(db, 'users', userId, 'water'))
+    const item = {
+      id: ref.id,
+      amount,
+      date: new Date().toISOString().split('T')[0],
+      time: new Date().toLocaleTimeString(),
+    }
+    set(s => ({ water: [item, ...s.water] }))
+    try { await setDoc(ref, item) } catch (e) { console.error(e) }
+  },
+  deleteWaterEntry: async (id) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    set(s => ({ water: s.water.filter(x => x.id !== id) }))
+    try { await deleteDoc(doc(db, 'users', userId, 'water', id)) } catch (e) { console.error(e) }
+  },
 
-      addGPAEntry: (g) => set((state) => ({
-        gpaEntries: [...state.gpaEntries, { ...g, id: generateId() }]
-      })),
-      updateGPAEntry: (id, updates) => set((state) => ({
-        gpaEntries: state.gpaEntries.map(g => g.id === id ? { ...g, ...updates } : g)
-      })),
-      deleteGPAEntry: (id) => set((state) => ({
-        gpaEntries: state.gpaEntries.filter(g => g.id !== id)
-      })),
+  addSleep: async (s) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    const ref = doc(collection(db, 'users', userId, 'sleep'))
+    const item = { ...s, id: ref.id }
+    set(state => ({ sleep: [item, ...state.sleep] }))
+    try { await setDoc(ref, item) } catch (e) { console.error(e) }
+  },
+  deleteSleep: async (id) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    set(s => ({ sleep: s.sleep.filter(x => x.id !== id) }))
+    try { await deleteDoc(doc(db, 'users', userId, 'sleep', id)) } catch (e) { console.error(e) }
+  },
 
-      addEvent: (e) => set((state) => ({
-        events: [...state.events, { ...e, id: generateId() }]
-      })),
-      updateEvent: (id, updates) => set((state) => ({
-        events: state.events.map(e => e.id === id ? { ...e, ...updates } : e)
-      })),
-      deleteEvent: (id) => set((state) => ({
-        events: state.events.filter(e => e.id !== id)
-      })),
+  addGPAEntry: async (g) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    const ref = doc(collection(db, 'users', userId, 'gpa'))
+    const item = { ...g, id: ref.id }
+    set(s => ({ gpaEntries: [...s.gpaEntries, item] }))
+    try { await setDoc(ref, item) } catch (e) { console.error(e) }
+  },
+  updateGPAEntry: async (id, updates) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    set(s => ({ gpaEntries: s.gpaEntries.map(x => x.id === id ? { ...x, ...updates } : x) }))
+    try { await updateDoc(doc(db, 'users', userId, 'gpa', id), updates) } catch (e) { console.error(e) }
+  },
+  deleteGPAEntry: async (id) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    set(s => ({ gpaEntries: s.gpaEntries.filter(x => x.id !== id) }))
+    try { await deleteDoc(doc(db, 'users', userId, 'gpa', id)) } catch (e) { console.error(e) }
+  },
 
-      addQuizQuestion: (q) => set((state) => ({
-        quizQuestions: [...state.quizQuestions, { ...q, id: generateId() }]
-      })),
-      deleteQuizQuestion: (id) => set((state) => ({
-        quizQuestions: state.quizQuestions.filter(q => q.id !== id)
-      })),
+  addEvent: async (e) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    const ref = doc(collection(db, 'users', userId, 'events'))
+    const item = { ...e, id: ref.id }
+    set(s => ({ events: [...s.events, item] }))
+    try { await setDoc(ref, item) } catch (err) { console.error(err) }
+  },
+  updateEvent: async (id, updates) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    set(s => ({ events: s.events.map(x => x.id === id ? { ...x, ...updates } : x) }))
+    try { await updateDoc(doc(db, 'users', userId, 'events', id), updates) } catch (e) { console.error(e) }
+  },
+  deleteEvent: async (id) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    set(s => ({ events: s.events.filter(x => x.id !== id) }))
+    try { await deleteDoc(doc(db, 'users', userId, 'events', id)) } catch (e) { console.error(e) }
+  },
 
-      updateAchievement: (id, current) => set((state) => ({
-        achievements: state.achievements.map(a => {
-          if (a.id !== id) return a
-          return { ...a, current, earnedAt: current >= a.requirement ? new Date().toISOString() : a.earnedAt }
-        })
-      })),
+  addQuizQuestion: async (q) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    const ref = doc(collection(db, 'users', userId, 'quizzes'))
+    const item = { ...q, id: ref.id }
+    set(s => ({ quizQuestions: [...s.quizQuestions, item] }))
+    try { await setDoc(ref, item) } catch (e) { console.error(e) }
+  },
+  deleteQuizQuestion: async (id) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    set(s => ({ quizQuestions: s.quizQuestions.filter(x => x.id !== id) }))
+    try { await deleteDoc(doc(db, 'users', userId, 'quizzes', id)) } catch (e) { console.error(e) }
+  },
 
-      setDailyWaterGoal: (goal) => set({ dailyWaterGoal: goal }),
-      setDailySleepGoal: (goal) => set({ dailySleepGoal: goal }),
-    }),
-    { name: 'study-planner-study' }
-  )
-)
+  updateAchievement: async (id, current) => {
+    const userId = auth.currentUser?.uid; if (!userId) return;
+    const item = get().achievements.find(a => a.id === id); if(!item) return;
+    const earnedAt = current >= item.requirement ? new Date().toISOString() : item.earnedAt;
+    set(s => ({ achievements: s.achievements.map(a => a.id === id ? { ...a, current, earnedAt } : a) }))
+    try { await updateDoc(doc(db, 'users', userId, 'achievements', id), { current, earnedAt }) } catch (e) { console.error(e) }
+  },
+
+  setDailyWaterGoal: async (goal) => {
+    const userId = auth.currentUser?.uid;
+    set({ dailyWaterGoal: goal })
+    if (!userId) return;
+    try { await updateDoc(doc(db, 'users', userId, 'settings', 'study'), { dailyWaterGoal: goal }) } catch(e) {}
+  },
+  setDailySleepGoal: async (goal) => {
+    const userId = auth.currentUser?.uid;
+    set({ dailySleepGoal: goal })
+    if (!userId) return;
+    try { await updateDoc(doc(db, 'users', userId, 'settings', 'study'), { dailySleepGoal: goal }) } catch(e) {}
+  },
+}))

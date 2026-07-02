@@ -13,6 +13,7 @@ export default function Signup() {
   const [confirm, setConfirm] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [serverError, setServerError] = useState('')
 
   const validate = () => {
     const e: Record<string, string> = {}
@@ -26,9 +27,14 @@ export default function Signup() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setServerError('')
     if (!validate()) return
-    await signup(name, email, password)
-    navigate('/')
+    const success = await signup(name, email, password)
+    if (success) {
+      navigate('/')
+    } else {
+      setServerError('Failed to create account. This email may already be in use.')
+    }
   }
 
   const FloatingField = ({ error, children }: { error?: string; children: React.ReactNode }) => (
@@ -60,6 +66,11 @@ export default function Signup() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {serverError && (
+              <div className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-2xl px-4 py-3 text-center">
+                {serverError}
+              </div>
+            )}
             <FloatingField error={errors.name}>
               <div className="relative">
                 <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-pink-300" />

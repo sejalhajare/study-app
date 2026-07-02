@@ -2,21 +2,39 @@ import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { DragDropContext, Droppable, Draggable, DropResult } from '@hello-pangea/dnd'
 import { 
-  Plus, Search, Calendar, Bell, GripVertical, 
-  CheckCircle2, Circle, Clock, Tag
+  Plus, Search, Calendar, GripVertical, 
+  CheckCircle2, Circle, Clock, Tag, Trash2, Pencil
 } from 'lucide-react'
 import { useTaskStore } from '@/store/taskStore'
 import { GlassCard } from '@/components/shared/GlassCard'
 import { AnimatedButton } from '@/components/shared/AnimatedButton'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { Modal } from '@/components/shared/Modal'
 import { TASK_CATEGORIES, PRIORITY_CONFIG } from '@/data/constants'
 import { formatDate } from '@/lib/utils'
+import { useToast } from '@/components/shared/Toast'
+import type { Task } from '@/types'
+
+const EMPTY_FORM = {
+  title: '',
+  description: '',
+  priority: 'medium' as Task['priority'],
+  category: 'Study',
+  deadline: '',
+  isRecurring: false,
+  recurringDays: [] as string[],
+}
 
 export default function Tasks() {
-  const { tasks, toggleComplete, deleteTask, reorderTasks } = useTaskStore()
+  const { tasks, toggleComplete, deleteTask, reorderTasks, addTask, updateTask } = useTaskStore()
+  const toast = useToast()
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('All')
   const [filterMode, setFilterMode] = useState<'all' | 'incomplete' | 'completed'>('incomplete')
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editingTask, setEditingTask] = useState<Task | null>(null)
+  const [form, setForm] = useState(EMPTY_FORM)
+  const [saving, setSaving] = useState(false)
 
   const filteredTasks = tasks.filter(t => {
     const matchesSearch = t.title.toLowerCase().includes(searchTerm.toLowerCase())
@@ -24,34 +42,74 @@ export default function Tasks() {
     const matchesStatus = filterMode === 'all' 
       ? true 
       : filterMode === 'completed' ? t.completed : !t.completed
-    
     return matchesSearch && matchesCategory && matchesStatus
   })
 
+  const openCreate = () => {
+    setEditingTask(null)
+    setForm(EMPTY_FORM)
+    setModalOpen(true)
+  }
+
+  const openEdit = (task: Task) => {
+    setEditingTask(task)
+    setForm({
+      title: task.title,
+      description: task.description || '',
+      priority: task.priority,
+      category: task.category,
+      deadline: task.deadline ? new Date(task.deadline).toISOString().slice(0, 10) : '',
+      isRecurring: task.isRecurring,
+      recurringDays: task.recurringDays || [],
+    })
+    setModalOpen(true)
+  }
+
+  const handleSave = async () => {
+    if (!form.title.trim()) { toast.error('Title is required'); return }
+    setSaving(true)
+    try {
+      if (editingTask) {
+        await updateTask(editingTask.id, {
+          ...form,
+          deadline: form.deadline ? new Date(form.deadline).toISOString() : undefined,
+        })
+        toast.success('Task updated!')
+      } else {
+        await addTask({
+          ...form,
+          completed: false,
+          deadline: form.deadline ? new Date(form.deadline).toISOString() : undefined,
+        })
+        toast.success('Task added!')
+      }
+      setModalOpen(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    await deleteTask(id)
+    toast.success('Task deleted!')
+  }
+
+  const handleToggle = async (id: string) => {
+    await toggleComplete(id)
+  }
+
   const handleDragEnd = (result: DropResult) => {
     if (!result.destination) return
-    const sourceIndex = result.source.index
-    const destIndex = result.destination.index
-
-    if (sourceIndex === destIndex) return
-
+    if (searchTerm || selectedCategory !== 'All' || filterMode !== 'all') return
     const newTasks = Array.from(tasks)
-    
-    // We need to map the filtered index back to the real tasks array index
-    // For simplicity in this demo, if they are filtering, we disable drag and drop
-    // or we only reorder if viewing "all" and no search. 
-    // In a real app, we'd map indices properly.
-    if (searchTerm || selectedCategory !== 'All' || filterMode !== 'all') {
-      alert("Sorting is only available when viewing All Tasks without filters.")
-      return
-    }
-
-    const [removed] = newTasks.splice(sourceIndex, 1)
-    newTasks.splice(destIndex, 0, removed)
+    const [removed] = newTasks.splice(result.source.index, 1)
+    newTasks.splice(result.destination.index, 0, removed)
     reorderTasks(newTasks)
   }
 
   const completionPercentage = tasks.length === 0 ? 0 : Math.round((tasks.filter(t => t.completed).length / tasks.length) * 100)
+
+  const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 
   return (
     <div className="p-4 lg:p-8 max-w-5xl mx-auto space-y-6">
@@ -61,7 +119,7 @@ export default function Tasks() {
           <h1 className="text-3xl font-bold text-foreground">To-Do List ✅</h1>
           <p className="text-sm text-muted-foreground mt-1">Manage your tasks and stay organized</p>
         </div>
-        <AnimatedButton icon={<Plus size={18} />}>
+        <AnimatedButton icon={<Plus size={18} />} onClick={openCreate}>
           Add Task
         </AnimatedButton>
       </div>
@@ -82,8 +140,6 @@ export default function Tasks() {
 
       {/* Toolbar */}
       <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center bg-white/40 p-2 rounded-2xl border border-pink-100/50 backdrop-blur-md">
-        
-        {/* Status Filters */}
         <div className="flex gap-2 w-full md:w-auto p-1 bg-white/40 rounded-xl">
           {(['incomplete', 'completed', 'all'] as const).map(mode => (
             <button
@@ -98,7 +154,6 @@ export default function Tasks() {
           ))}
         </div>
 
-        {/* Categories Scrollable */}
         <div className="flex overflow-x-auto gap-2 pb-2 md:pb-0 w-full md:w-auto no-scrollbar flex-1 border-l border-pink-100/50 pl-2">
           {['All', ...TASK_CATEGORIES].map(category => (
             <button
@@ -115,7 +170,6 @@ export default function Tasks() {
           ))}
         </div>
 
-        {/* Search */}
         <div className="relative w-full md:w-48 shrink-0">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
           <input
@@ -134,7 +188,7 @@ export default function Tasks() {
           icon="✨"
           title="You're all caught up!"
           description={searchTerm ? "No tasks match your search criteria" : "Take a break or add a new task to your list."}
-          action={!searchTerm && <AnimatedButton icon={<Plus size={16} />}>Create Task</AnimatedButton>}
+          action={!searchTerm && <AnimatedButton icon={<Plus size={16} />} onClick={openCreate}>Create Task</AnimatedButton>}
         />
       ) : (
         <DragDropContext onDragEnd={handleDragEnd}>
@@ -160,7 +214,6 @@ export default function Tasks() {
                             snapshot.isDragging ? 'shadow-glass-lg scale-[1.02] border-pink-300 z-50' : 'shadow-sm border-pink-100/50 hover:border-pink-200'
                           } ${task.completed ? 'opacity-60' : ''}`}
                         >
-                          {/* Drag Handle */}
                           <div 
                             {...provided.dragHandleProps} 
                             className="text-muted-foreground/30 hover:text-pink-400 cursor-grab active:cursor-grabbing p-1"
@@ -168,15 +221,13 @@ export default function Tasks() {
                             <GripVertical size={16} />
                           </div>
 
-                          {/* Checkbox */}
                           <button 
-                            onClick={() => toggleComplete(task.id)}
+                            onClick={() => handleToggle(task.id)}
                             className={`shrink-0 transition-colors ${task.completed ? 'text-pink-500' : 'text-muted-foreground hover:text-pink-400'}`}
                           >
                             {task.completed ? <CheckCircle2 size={24} /> : <Circle size={24} />}
                           </button>
 
-                          {/* Content */}
                           <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                             <div className="min-w-0">
                               <h3 className={`font-semibold text-sm truncate transition-all ${task.completed ? 'line-through text-muted-foreground' : 'text-foreground'}`}>
@@ -187,7 +238,6 @@ export default function Tasks() {
                               )}
                             </div>
                             
-                            {/* Badges */}
                             <div className="flex flex-wrap items-center gap-2 shrink-0">
                               <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${PRIORITY_CONFIG[task.priority].color}`}>
                                 {task.priority}
@@ -216,12 +266,20 @@ export default function Tasks() {
                           </div>
 
                           {/* Actions */}
-                          <button 
-                            onClick={() => deleteTask(task.id)}
-                            className="shrink-0 p-2 rounded-xl text-muted-foreground/50 hover:text-red-500 hover:bg-red-50 transition-colors opacity-0 group-hover:opacity-100"
-                          >
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
-                          </button>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button 
+                              onClick={() => openEdit(task)}
+                              className="p-2 rounded-xl text-muted-foreground/50 hover:text-blue-500 hover:bg-blue-50 transition-colors"
+                            >
+                              <Pencil size={14} />
+                            </button>
+                            <button 
+                              onClick={() => handleDelete(task.id)}
+                              className="p-2 rounded-xl text-muted-foreground/50 hover:text-red-500 hover:bg-red-50 transition-colors"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
                         </motion.div>
                       )}
                     </Draggable>
@@ -233,6 +291,132 @@ export default function Tasks() {
           </Droppable>
         </DragDropContext>
       )}
+
+      {/* Add/Edit Modal */}
+      <Modal
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        title={editingTask ? 'Edit Task' : 'Add Task'}
+        emoji="✅"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Task Title *</label>
+            <input
+              type="text"
+              placeholder="What needs to be done?"
+              value={form.title}
+              onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+              className="w-full px-4 py-3 rounded-2xl border border-pink-100 bg-pink-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 transition-all"
+              autoFocus
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Description</label>
+            <textarea
+              placeholder="Add details..."
+              value={form.description}
+              onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+              rows={3}
+              className="w-full px-4 py-3 rounded-2xl border border-pink-100 bg-pink-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300 transition-all resize-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Priority</label>
+              <select
+                value={form.priority}
+                onChange={e => setForm(f => ({ ...f, priority: e.target.value as Task['priority'] }))}
+                className="w-full px-4 py-2.5 rounded-2xl border border-pink-100 bg-pink-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
+              >
+                <option value="high">🔴 High</option>
+                <option value="medium">🟡 Medium</option>
+                <option value="low">🟢 Low</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Category</label>
+              <select
+                value={form.category}
+                onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                className="w-full px-4 py-2.5 rounded-2xl border border-pink-100 bg-pink-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
+              >
+                {TASK_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-muted-foreground mb-1.5 block">Deadline</label>
+            <input
+              type="date"
+              value={form.deadline}
+              min={new Date().toISOString().slice(0, 10)}
+              onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))}
+              className="w-full px-4 py-2.5 rounded-2xl border border-pink-100 bg-pink-50/30 text-sm focus:outline-none focus:ring-2 focus:ring-pink-300"
+            />
+          </div>
+
+          <div>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.isRecurring}
+                onChange={e => setForm(f => ({ ...f, isRecurring: e.target.checked }))}
+                className="w-4 h-4 rounded accent-pink-400"
+              />
+              <span className="text-sm font-medium text-foreground">Recurring task</span>
+            </label>
+          </div>
+
+          {form.isRecurring && (
+            <div>
+              <label className="text-xs font-semibold text-muted-foreground mb-2 block">Repeat on days</label>
+              <div className="flex flex-wrap gap-2">
+                {DAYS.map(day => (
+                  <button
+                    key={day}
+                    type="button"
+                    onClick={() => {
+                      const days = form.recurringDays.includes(day)
+                        ? form.recurringDays.filter(d => d !== day)
+                        : [...form.recurringDays, day]
+                      setForm(f => ({ ...f, recurringDays: days }))
+                    }}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                      form.recurringDays.includes(day)
+                        ? 'bg-pink-400 text-white'
+                        : 'bg-pink-50 text-pink-600 hover:bg-pink-100'
+                    }`}
+                  >
+                    {day}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={() => setModalOpen(false)}
+              className="flex-1 py-3 rounded-2xl border border-pink-100 text-sm font-semibold text-muted-foreground hover:bg-pink-50 transition-all"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex-1 py-3 rounded-2xl bg-gradient-to-r from-pink-300 to-lavender-300 text-white font-bold text-sm shadow-pink hover:shadow-glass transition-all flex items-center justify-center gap-2"
+            >
+              {saving ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : null}
+              {editingTask ? 'Update Task' : 'Add Task'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
